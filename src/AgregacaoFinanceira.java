@@ -5,6 +5,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import net.openhft.affinity.Affinity;
 
 public class AgregacaoFinanceira {
     public static class Resultado {
@@ -30,6 +31,14 @@ public class AgregacaoFinanceira {
         return acumulador.resultado();
     }
     public Resultado calcularParalelo(List<Transacao> transacoes, int numThreads){
+        return calcularParalelo(transacoes, numThreads, false);
+    }
+
+    public Resultado calcularParaleloComAffinity(List<Transacao> transacoes, int numThreads){
+        return calcularParalelo(transacoes, numThreads, true);
+    }
+
+    private Resultado calcularParalelo(List<Transacao> transacoes, int numThreads, boolean usarAffinity){
         validarDados(transacoes); 
         if (numThreads < 1) throw new IllegalArgumentException("Número de threads deve ser positivo");
         if (transacoes.isEmpty()) return new Acumulador().resultado();
@@ -43,6 +52,10 @@ public class AgregacaoFinanceira {
                 final int fim = Math.min(inicio + tamanhoFatia, transacoes.size());
                 if (inicio >= fim) break;
                 Callable<Resultado> tarefa = () -> {
+                    if (usarAffinity) {
+                        // Fixa a thread de trabalho no CPU atual para reduzir migrações entre núcleos.
+                        Affinity.setAffinity(Affinity.getCpu());
+                    }
                     Acumulador parcial = new Acumulador();
                     for (int indice = inicio; indice < fim; indice++) {
                         parcial.adicionar(transacoes.get(indice));
@@ -100,7 +113,7 @@ public class AgregacaoFinanceira {
             quantidade += parcial.quantidade;
             soma+= parcial.soma;
             if (parcial.maior != null && (maior == null || parcial.maior.valor > maior.valor)) maior = parcial.maior;
-            if (parcial.menor != null && (menor == null || parcial.menor.valor > menor.valor)) menor = parcial.menor;
+            if (parcial.menor != null && (menor == null || parcial.menor.valor < menor.valor)) menor = parcial.menor;
         }
         private Resultado resultado(){
             return new Resultado(quantidade, soma, maior, menor);

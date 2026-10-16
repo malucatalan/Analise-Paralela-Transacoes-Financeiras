@@ -6,6 +6,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import net.openhft.affinity.AffinityLock;
 
 public class EstatisticasCategoria {
 
@@ -24,7 +25,7 @@ public class EstatisticasCategoria {
     }
 
     // -------------------------------------------------------------
-    // EXECUÇÃO SEQUENCIAL (1 THREAD)
+    // 1. EXECUÇÃO SEQUENCIAL (1 THREAD)
     // -------------------------------------------------------------
     public ResultadoFinalCategorias calcularSequencial(List<Transacao> transacoes) {
         ResultadoFinalCategorias resultadoGlobal = new ResultadoFinalCategorias();
@@ -32,7 +33,6 @@ public class EstatisticasCategoria {
 
         long inicio = System.currentTimeMillis();
 
-        // O computador lê a lista inteira do início ao fim
         for (Transacao t : transacoes) {
             processarTransacao(resultadoGlobal.mapa, t);
         }
@@ -47,71 +47,68 @@ public class EstatisticasCategoria {
     }
 
     // -------------------------------------------------------------
-    // EXECUÇÃO PARALELA (EXECUTOR SERVICE)
+    // 2. EXECUÇÃO PARALELA (EXECUTOR SERVICE)
     // -------------------------------------------------------------
     public ResultadoFinalCategorias calcularParalelo(List<Transacao> transacoes, int numThreads) {
         ResultadoFinalCategorias resultadoGlobal = new ResultadoFinalCategorias();
-
         long inicio = System.currentTimeMillis();
 
-        // EXECUTOR: cria o pool fixo de threads
         ExecutorService executor = Executors.newFixedThreadPool(numThreads);
-
-        // FUTURE: Lista de promessas dos resultados parciais
         List<Future<Map<String, ResumoCategoria>>> resultados = new ArrayList<>();
-
-        // Calcula o tamanho da fatia da lista por thread
         int tamanhoFatia = transacoes.size() / numThreads;
 
-        // Criação e distribuição das tarefas
         for (int i = 0; i < numThreads; i++) {
             int inicioFatia = i * tamanhoFatia;
             int fimFatia = (i == numThreads - 1) ? transacoes.size() : (i + 1) * tamanhoFatia;
 
-            // Separa a fatia exata dos dados e cria a tarefa para a thread resolver
             Callable<Map<String, ResumoCategoria>> tarefa = new TarefaEstatisticas(transacoes.subList(inicioFatia, fimFatia));
-
-            // Submete ao executor e guarda a promessa
             resultados.add(executor.submit(tarefa));
         }
 
-        // Mapa principal onde junta as respostas de todas as threads no final (Redução)
-        resultadoGlobal.mapa = inicializarMapa();
+        resultadoGlobal.mapa = consolidarMapas(resultados);
 
-        try {
-            // Loop que junta as respostas parciais
-            for (Future<Map<String, ResumoCategoria>> resultado : resultados) {
-
-                // .get() aguarda a conclusão da thread e pega o mapa parcial dela
-                Map<String, ResumoCategoria> mapaParcial = resultado.get();
-
-                // Combina os valores da thread no mapa principal
-                for (String categoria : resultadoGlobal.mapa.keySet()) {
-                    ResumoCategoria fimResumo = resultadoGlobal.mapa.get(categoria);
-                    ResumoCategoria parcResumo = mapaParcial.get(categoria);
-
-                    fimResumo.quantidade += parcResumo.quantidade;
-                    fimResumo.valorTotal += parcResumo.valorTotal;
-
-                    if (parcResumo.maiorTransacao > fimResumo.maiorTransacao) {
-                        fimResumo.maiorTransacao = parcResumo.maiorTransacao;
-                    }
-                    if (parcResumo.menorTransacao < fimResumo.menorTransacao) {
-                        fimResumo.menorTransacao = parcResumo.menorTransacao;
-                    }
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        // Desliga o executor
         executor.shutdown();
 
         long fim = System.currentTimeMillis();
         resultadoGlobal.tempoExecucaoMs = fim - inicio;
 
         System.out.println("\n[RESULTADO PARALELO - " + numThreads + " THREADS]");
+        imprimirTabela(resultadoGlobal.mapa, resultadoGlobal.tempoExecucaoMs);
+
+        return resultadoGlobal;
+    }
+
+    // -------------------------------------------------------------
+    // 3. EXECUÇÃO PARALELA COM AFINIDADE DE CPU (OPENHFT AFFINITY)
+    // -------------------------------------------------------------
+    public ResultadoFinalCategorias calcularParaleloComAffinity(List<Transacao> transacoes, int numThreads) {
+        ResultadoFinalCategorias resultadoGlobal = new ResultadoFinalCategorias();
+        long inicio = System.currentTimeMillis();
+
+        ExecutorService executor = Executors.newFixedThreadPool(numThreads);
+        List<Future<Map<String, ResumoCategoria>>> resultados = new ArrayList<>();
+        int tamanhoFatia = transacoes.size() / numThreads;
+        int totalCores = Runtime.getRuntime().availableProcessors();
+
+        for (int i = 0; i < numThreads; i++) {
+            int inicioFatia = i * tamanhoFatia;
+            int fimFatia = (i == numThreads - 1) ? transacoes.size() : (i + 1) * tamanhoFatia;
+            
+            // Proteção para não estourar o limite de núcleos físicos
+            int cpuCore = i % totalCores;
+            
+            Callable<Map<String, ResumoCategoria>> tarefa = new TarefaEstatisticasAffinity(transacoes.subList(inicioFatia, fimFatia), cpuCore);
+            resultados.add(executor.submit(tarefa));
+        }
+
+        resultadoGlobal.mapa = consolidarMapas(resultados);
+
+        executor.shutdown();
+
+        long fim = System.currentTimeMillis();
+        resultadoGlobal.tempoExecucaoMs = fim - inicio;
+
+        System.out.println("\n[RESULTADO PARALELO + AFINIDADE - " + numThreads + " THREADS FIXADAS EM CORES]");
         imprimirTabela(resultadoGlobal.mapa, resultadoGlobal.tempoExecucaoMs);
 
         return resultadoGlobal;
@@ -129,19 +126,41 @@ public class EstatisticasCategoria {
 
         @Override
         public Map<String, ResumoCategoria> call() {
-            // Instância local e isolada para evitar race condition entre threads
             Map<String, ResumoCategoria> mapaLocal = inicializarMapa();
-
-            // Processa apenas a fatia designada para esta thread
             for (Transacao t : fatia) {
                 processarTransacao(mapaLocal, t);
             }
-
             return mapaLocal;
         }
     }
 
-    // Método auxiliar para criar as categorias zeradas
+    // -------------------------------------------------------------
+    // TAREFA PARALELA COM AFINIDADE (CALLABLE)
+    // -------------------------------------------------------------
+    class TarefaEstatisticasAffinity implements Callable<Map<String, ResumoCategoria>> {
+        private final List<Transacao> fatia;
+        private final int cpuCore;
+
+        public TarefaEstatisticasAffinity(List<Transacao> fatia, int cpuCore) {
+            this.fatia = fatia;
+            this.cpuCore = cpuCore;
+        }
+
+        @Override
+        public Map<String, ResumoCategoria> call() {
+            try (AffinityLock lock = AffinityLock.acquireLock(cpuCore)) {
+                Map<String, ResumoCategoria> mapaLocal = inicializarMapa();
+                for (Transacao t : fatia) {
+                    processarTransacao(mapaLocal, t);
+                }
+                return mapaLocal;
+            }
+        }
+    }
+
+    // -------------------------------------------------------------
+    // MÉTODOS AUXILIARES
+    // -------------------------------------------------------------
     private Map<String, ResumoCategoria> inicializarMapa() {
         Map<String, ResumoCategoria> mapa = new HashMap<>();
         mapa.put("Alimentação", new ResumoCategoria());
@@ -152,7 +171,6 @@ public class EstatisticasCategoria {
         return mapa;
     }
 
-    // Processamento de cada elemento do vetor
     private void processarTransacao(Map<String, ResumoCategoria> mapa, Transacao t) {
         ResumoCategoria resumo = mapa.get(t.categoria);
         if (resumo != null) {
@@ -161,6 +179,32 @@ public class EstatisticasCategoria {
             if (t.valor > resumo.maiorTransacao) resumo.maiorTransacao = t.valor;
             if (t.valor < resumo.menorTransacao) resumo.menorTransacao = t.valor;
         }
+    }
+
+    private Map<String, ResumoCategoria> consolidarMapas(List<Future<Map<String, ResumoCategoria>>> resultados) {
+        Map<String, ResumoCategoria> mapaFinal = inicializarMapa();
+        try {
+            for (Future<Map<String, ResumoCategoria>> resultado : resultados) {
+                Map<String, ResumoCategoria> mapaParcial = resultado.get();
+                for (String categoria : mapaFinal.keySet()) {
+                    ResumoCategoria fimResumo = mapaFinal.get(categoria);
+                    ResumoCategoria parcResumo = mapaParcial.get(categoria);
+
+                    fimResumo.quantidade += parcResumo.quantidade;
+                    fimResumo.valorTotal += parcResumo.valorTotal;
+
+                    if (parcResumo.maiorTransacao > fimResumo.maiorTransacao) {
+                        fimResumo.maiorTransacao = parcResumo.maiorTransacao;
+                    }
+                    if (parcResumo.menorTransacao < fimResumo.menorTransacao) {
+                        fimResumo.menorTransacao = parcResumo.menorTransacao;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return mapaFinal;
     }
 
     // Impressão em formato de tabela

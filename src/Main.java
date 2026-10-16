@@ -23,12 +23,11 @@ public class Main {
             System.out.println("2. Visualizar amostra dos dados gerados");
             System.out.println("\n--- ANÁLISES DE NEGÓCIO ---");
             System.out.println("3. Cálculos de Transações");
-            System.out.println("4. Detecção de Transações Suspeitas (Sequencial + Paralelo)");
-            System.out.println("5. Estatísticas por Categoria - Sequencial");
-            System.out.println("6. Estatísticas por Categoria - Paralelo");
+            System.out.println("4. Detecção de Transações Suspeitas");
+            System.out.println("5. Estatísticas por Categoria");
             System.out.println("\n--- BENCHMARK E RESULTADOS ---");
-            System.out.println("7. Executar Benchmark Completo: Tempos, SpeedUp e Eficiência");
-            System.out.println("8. Gerar Gráficos de Desempenho");
+            System.out.println("6. Executar Benchmark Completo: Tempos, SpeedUp e Eficiência");
+            System.out.println("7. Gerar Gráficos de Desempenho");
             System.out.println("\n0. Sair");
             System.out.print("Escolha uma opção: ");
             
@@ -63,12 +62,28 @@ public class Main {
                 if (dadosAtuais.isEmpty()) {
                     System.out.println("Erro: Gere os dados primeiro (Opção 1).");
                 } else {
-                    System.out.println("1. Agregação ");
+                    System.out.println("1. Agregação sequencial");
+                    System.out.println("2. Agregação paralela (ExecutorService)");
+                    System.out.print("Escolha a versão: ");
+                    int versao = scanner.nextInt();
+                    scanner.nextLine();
+                    if (versao == 1) {
+                        AgregacaoFinanceira.Resultado resultado = agregacaoFinanceira.calcularSequencial(dadosAtuais);
+                        agregacaoFinanceira.imprimirResultado("AGREGAÇÃO FINANCEIRA SEQUENCIAL", resultado);
+                    } else if (versao == 2) {
+                        System.out.print("Número de threads: ");
+                        int qtdThreads = scanner.nextInt();
+                        scanner.nextLine();
+                        AgregacaoFinanceira.Resultado resultado = agregacaoFinanceira.calcularParalelo(dadosAtuais, qtdThreads);
+                        agregacaoFinanceira.imprimirResultado("AGREGAÇÃO FINANCEIRA PARALELA - " + qtdThreads + " THREADS", resultado);
+                    } else {
+                        System.out.println("Versão inválida.");
+                    }
                 }
                 pausar(scanner);
             }
-            // --- TRANSAÇÕES SUSPEITAS (SEQUENCIAL + PARALELO) ---
-else if (opcao == 4) {
+
+            else if (opcao == 4) {
                 if (dadosAtuais.isEmpty()) {
                     System.out.println("Erro: Gere os dados primeiro (Opção 1).");
                 } else {
@@ -117,8 +132,6 @@ else if (opcao == 4) {
                 }
                 pausar(scanner);
             }
-            // --- ESTATÍSTICAS POR CATEGORIA (SEQUENCIAL) ---
-// --- ESTATÍSTICAS POR CATEGORIA (SEQUENCIAL + PARALELO) ---
 
             // --- ESTATÍSTICAS POR CATEGORIA (SEQUENCIAL + PARALELO) ---
             else if (opcao == 5) {
@@ -133,23 +146,33 @@ else if (opcao == 4) {
                     System.out.println("    ESTATÍSTICAS POR CATEGORIA");
                     System.out.println("==================================================");
 
-                    // 1. Sequencial
+                    // 1. Execução Sequencial
                     EstatisticasCategoria.ResultadoFinalCategorias resSeq = analiseEstatistica.calcularSequencial(dadosAtuais);
 
-                    // 2. Paralelo
+                    // 2. Execução Paralela (ExecutorService padrão)
                     EstatisticasCategoria.ResultadoFinalCategorias resPar = analiseEstatistica.calcularParalelo(dadosAtuais, qtdThreads);
 
-                    // 3. Comparativo
-                    double speedup = (double) resSeq.tempoExecucaoMs / (resPar.tempoExecucaoMs == 0 ? 1 : resPar.tempoExecucaoMs);
-                    double eficiencia = (speedup / qtdThreads) * 100;
+                    // 3. Execução Paralela com Afinidade (Affinity)
+                    EstatisticasCategoria.ResultadoFinalCategorias resParAffinity = analiseEstatistica.calcularParaleloComAffinity(dadosAtuais, qtdThreads);
+
+                    // 4. Comparativo de Desempenho
+                    double speedupPar = (double) resSeq.tempoExecucaoMs / (resPar.tempoExecucaoMs == 0 ? 1 : resPar.tempoExecucaoMs);
+                    double eficienciaPar = (speedupPar / qtdThreads) * 100;
+
+                    double speedupAffinity = (double) resSeq.tempoExecucaoMs / (resParAffinity.tempoExecucaoMs == 0 ? 1 : resParAffinity.tempoExecucaoMs);
+                    double eficienciaAffinity = (speedupAffinity / qtdThreads) * 100;
 
                     System.out.println("==================================================");
                     System.out.println("          COMPARATIVO DE DESEMPENHO");
                     System.out.println("==================================================");
-                    System.out.printf("  • Tempo Sequencial (1 thread) : %,d ms\n", resSeq.tempoExecucaoMs);
-                    System.out.printf("  • Tempo Paralelo   (%d threads): %,d ms\n", qtdThreads, resPar.tempoExecucaoMs);
-                    System.out.printf("  • Speedup (Ganhos)            : %.2fx mais rápido\n", speedup);
-                    System.out.printf("  • Eficiência Paralela         : %.1f%%\n", eficiencia);
+                    System.out.printf("  • Tempo Sequencial (1 thread)        : %,d ms\n", resSeq.tempoExecucaoMs);
+                    System.out.printf("  • Tempo Paralelo   (%d threads)      : %,d ms\n", qtdThreads, resPar.tempoExecucaoMs);
+                    System.out.printf("  • Tempo Affinity   (%d threads)      : %,d ms\n", qtdThreads, resParAffinity.tempoExecucaoMs);
+                    System.out.println("--------------------------------------------------");
+                    System.out.printf("  • Speedup (Paralelo)                 : %.2fx mais rápido\n", speedupPar);
+                    System.out.printf("  • Eficiência (Paralelo)              : %.1f%%\n", eficienciaPar);
+                    System.out.printf("  • Speedup (Affinity)                 : %.2fx mais rápido\n", speedupAffinity);
+                    System.out.printf("  • Eficiência (Affinity)              : %.1f%%\n", eficienciaAffinity);
                     System.out.println("==================================================\n");
                 }
                 pausar(scanner);
