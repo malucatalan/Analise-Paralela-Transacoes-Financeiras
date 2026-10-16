@@ -1,3 +1,5 @@
+//SOURCES *.java
+//DEPS net.openhft:affinity:3.23.3
 import java.util.Scanner;
 import java.util.List;
 import java.util.ArrayList;
@@ -7,6 +9,9 @@ public class Main {
         Scanner scanner = new Scanner(System.in);
         GeradorDeDados gerador = new GeradorDeDados();
         EstatisticasCategoria analiseEstatistica = new EstatisticasCategoria();
+        TransacoesSuspeitas analiseSuspeitas = new TransacoesSuspeitas();
+        AgregacaoFinanceira agregacaoFinanceira = new AgregacaoFinanceira();
+        
         List<Transacao> dadosAtuais = new ArrayList<>();
 
         while (true) {
@@ -18,11 +23,11 @@ public class Main {
             System.out.println("2. Visualizar amostra dos dados gerados");
             System.out.println("\n--- ANÁLISES DE NEGÓCIO ---");
             System.out.println("3. Cálculos de Transações");
-            System.out.println("4. Detecção de Transações Suspeitas");
+            System.out.println("4. Detecção de Transações Suspeitas (Sequencial + Paralelo)");
             System.out.println("5. Estatísticas por Categoria - Sequencial");
             System.out.println("6. Estatísticas por Categoria - Paralelo");
             System.out.println("\n--- BENCHMARK E RESULTADOS ---");
-            System.out.println("7. Executar Benchmark: Tempos, SpeedUp e Eficiência");
+            System.out.println("7. Executar Benchmark Completo: Tempos, SpeedUp e Eficiência");
             System.out.println("8. Gerar Gráficos de Desempenho");
             System.out.println("\n0. Sair");
             System.out.print("Escolha uma opção: ");
@@ -58,27 +63,98 @@ public class Main {
                 if (dadosAtuais.isEmpty()) {
                     System.out.println("Erro: Gere os dados primeiro (Opção 1).");
                 } else {
-                    System.out.println("Em breve");
+                    System.out.println("1. Agregação ");
                 }
                 pausar(scanner);
             }
-            else if (opcao == 4) {
+            // --- TRANSAÇÕES SUSPEITAS (SEQUENCIAL + PARALELO) ---
+else if (opcao == 4) {
                 if (dadosAtuais.isEmpty()) {
                     System.out.println("Erro: Gere os dados primeiro (Opção 1).");
                 } else {
-                    System.out.println("Em breve");
+                    System.out.print("Quantas threads deseja usar para a execução paralela? (ex: 2, 4, 8, 16): ");
+                    int qtdThreads = scanner.nextInt();
+                    scanner.nextLine();
+
+                    System.out.println("\n==================================================");
+                    System.out.println("    DETECÇÃO DE TRANSAÇÕES SUSPEITAS");
+                    System.out.println("==================================================");
+
+                    // 1. Execução Sequencial com medição de tempo
+                    long inicioSeq = System.currentTimeMillis();
+                    analiseSuspeitas.calcularSequencial(dadosAtuais);
+                    long tempoSeq = System.currentTimeMillis() - inicioSeq;
+
+                    // 2. Execução Paralela com medição de tempo
+                    long inicioPar = System.currentTimeMillis();
+                    analiseSuspeitas.calcularParalelo(dadosAtuais, qtdThreads);
+                    long tempoPar = System.currentTimeMillis() - inicioPar;
+
+                    // 3. Execução Paralela com Afinidade (Affinity) com medição de tempo
+                    long inicioParAffinity = System.currentTimeMillis();
+                    analiseSuspeitas.calcularParaleloComAffinity(dadosAtuais, qtdThreads);
+                    long tempoParAffinity = System.currentTimeMillis() - inicioParAffinity;
+
+                    // 4. Comparativo de Desempenho
+                    double speedupPar = (double) tempoSeq / (tempoPar == 0 ? 1 : tempoPar);
+                    double eficienciaPar = (speedupPar / qtdThreads) * 100;
+
+                    double speedupAffinity = (double) tempoSeq / (tempoParAffinity == 0 ? 1 : tempoParAffinity);
+                    double eficienciaAffinity = (speedupAffinity / qtdThreads) * 100;
+
+                    System.out.println("==================================================");
+                    System.out.println("          COMPARATIVO DE DESEMPENHO");
+                    System.out.println("==================================================");
+                    System.out.printf("  • Tempo Sequencial (1 thread)        : %,d ms\n", tempoSeq);
+                    System.out.printf("  • Tempo Paralelo   (%d threads)      : %,d ms\n", qtdThreads, tempoPar);
+                    System.out.printf("  • Tempo Affinity   (%d threads)      : %,d ms\n", qtdThreads, tempoParAffinity);
+                    System.out.println("--------------------------------------------------");
+                    System.out.printf("  • Speedup (Paralelo)                 : %.2fx mais rápido\n", speedupPar);
+                    System.out.printf("  • Eficiência (Paralelo)              : %.1f%%\n", eficienciaPar);
+                    System.out.printf("  • Speedup (Affinity)                 : %.2fx mais rápido\n", speedupAffinity);
+                    System.out.printf("  • Eficiência (Affinity)              : %.1f%%\n", eficienciaAffinity);
+                    System.out.println("==================================================\n");
                 }
                 pausar(scanner);
             }
+            // --- ESTATÍSTICAS POR CATEGORIA (SEQUENCIAL) ---
+// --- ESTATÍSTICAS POR CATEGORIA (SEQUENCIAL + PARALELO) ---
+
+            // --- ESTATÍSTICAS POR CATEGORIA (SEQUENCIAL + PARALELO) ---
             else if (opcao == 5) {
                 if (dadosAtuais.isEmpty()) {
                     System.out.println("Erro: Gere os dados primeiro (Opção 1).");
                 } else {
-                    System.out.println("Calculando estatísticas...\n");
-                    analiseEstatistica.calcularSequencial(dadosAtuais);
+                    System.out.print("Quantas threads deseja usar para a execução paralela? (ex: 2, 4, 8, 16): ");
+                    int qtdThreads = scanner.nextInt();
+                    scanner.nextLine();
+
+                    System.out.println("\n==================================================");
+                    System.out.println("    ESTATÍSTICAS POR CATEGORIA");
+                    System.out.println("==================================================");
+
+                    // 1. Sequencial
+                    EstatisticasCategoria.ResultadoFinalCategorias resSeq = analiseEstatistica.calcularSequencial(dadosAtuais);
+
+                    // 2. Paralelo
+                    EstatisticasCategoria.ResultadoFinalCategorias resPar = analiseEstatistica.calcularParalelo(dadosAtuais, qtdThreads);
+
+                    // 3. Comparativo
+                    double speedup = (double) resSeq.tempoExecucaoMs / (resPar.tempoExecucaoMs == 0 ? 1 : resPar.tempoExecucaoMs);
+                    double eficiencia = (speedup / qtdThreads) * 100;
+
+                    System.out.println("==================================================");
+                    System.out.println("          COMPARATIVO DE DESEMPENHO");
+                    System.out.println("==================================================");
+                    System.out.printf("  • Tempo Sequencial (1 thread) : %,d ms\n", resSeq.tempoExecucaoMs);
+                    System.out.printf("  • Tempo Paralelo   (%d threads): %,d ms\n", qtdThreads, resPar.tempoExecucaoMs);
+                    System.out.printf("  • Speedup (Ganhos)            : %.2fx mais rápido\n", speedup);
+                    System.out.printf("  • Eficiência Paralela         : %.1f%%\n", eficiencia);
+                    System.out.println("==================================================\n");
                 }
                 pausar(scanner);
             }
+            // --- ESTATÍSTICAS POR CATEGORIA (PARALELO) ---
             else if (opcao == 6) {
                 if (dadosAtuais.isEmpty()) {
                     System.out.println("Erro: Gere os dados primeiro (Opção 1).");
@@ -92,7 +168,6 @@ public class Main {
                 }
                 pausar(scanner);
             }
-
             else if (opcao == 7) {
                 if (dadosAtuais.isEmpty()) {
                     System.out.println("Erro: Gere os dados primeiro (Opção 1).");
@@ -105,7 +180,6 @@ public class Main {
                 System.out.println("Em breve");
                 pausar(scanner);
             }
-            
             else if (opcao == 0) {
                 System.out.println("Encerrando o sistema...");
                 break;
