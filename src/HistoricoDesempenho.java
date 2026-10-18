@@ -18,6 +18,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -34,9 +35,6 @@ public final class HistoricoDesempenho {
     private static final Path ARQUIVO_SVG = Paths.get("graficos_desempenho.svg");
     private static final DateTimeFormatter FORMATO_DATA = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static JFrame janelaGraficos;
-    private static GraficoPainel painelTempo;
-    private static GraficoPainel painelSpeedup;
-    private static GraficoPainel painelEficiencia;
 
     private HistoricoDesempenho() { }
 
@@ -62,6 +60,8 @@ public final class HistoricoDesempenho {
         double tempoMs;
         double speedup;
         double eficiencia;
+        boolean media;
+        int quantidadeTestes;
     }
 
     public static void registrarGrupo(String analise, int transacoes, List<Medicao> medicoes) {
@@ -112,9 +112,12 @@ public final class HistoricoDesempenho {
             return;
         }
 
-        imprimirGrafico("TEMPO DE EXECUÇÃO (ms)", registros, "tempo");
-        imprimirGrafico("SPEEDUP", registros, "speedup");
-        imprimirGrafico("EFICIÊNCIA (%)", registros, "eficiencia");
+        Map<String, List<Registro>> porRegra = agruparPorRegra(registros);
+        for (Map.Entry<String, List<Registro>> grupo : porRegra.entrySet()) {
+            imprimirGrafico(grupo.getKey() + " — TEMPO DE EXECUÇÃO (ms)", grupo.getValue(), "tempo");
+            imprimirGrafico(grupo.getKey() + " — SPEEDUP", grupo.getValue(), "speedup");
+            imprimirGrafico(grupo.getKey() + " — EFICIÊNCIA (%)", grupo.getValue(), "eficiencia");
+        }
 
         try {
             gravarSvg(registros);
@@ -132,31 +135,58 @@ public final class HistoricoDesempenho {
             return;
         }
 
-        List<Registro> copia = new ArrayList<>(registros);
+        Map<String, List<Registro>> porRegra = agruparPorRegra(registros);
         SwingUtilities.invokeLater(() -> {
             if (janelaGraficos == null || !janelaGraficos.isDisplayable()) {
                 janelaGraficos = new JFrame("Histórico de desempenho das análises");
                 janelaGraficos.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-                JTabbedPane abas = new JTabbedPane();
-
-                painelTempo = new GraficoPainel("Tempo de execução (ms)", "tempo", new Color(37, 99, 235));
-                painelSpeedup = new GraficoPainel("Speedup", "speedup", new Color(22, 163, 74));
-                painelEficiencia = new GraficoPainel("Eficiência (%)", "eficiencia", new Color(234, 88, 12));
-                abas.addTab("Tempo", new JScrollPane(painelTempo));
-                abas.addTab("Speedup", new JScrollPane(painelSpeedup));
-                abas.addTab("Eficiência", new JScrollPane(painelEficiencia));
-                janelaGraficos.setContentPane(abas);
                 janelaGraficos.setSize(1120, 740);
                 janelaGraficos.setLocationRelativeTo(null);
             }
 
-            painelTempo.atualizar(copia);
-            painelSpeedup.atualizar(copia);
-            painelEficiencia.atualizar(copia);
+            JTabbedPane abasRegras = new JTabbedPane();
+            for (Map.Entry<String, List<Registro>> grupo : porRegra.entrySet()) {
+                List<Registro> dadosRegra = new ArrayList<>(grupo.getValue());
+                JTabbedPane abasMetricas = new JTabbedPane();
+
+                GraficoPainel painelTempo = new GraficoPainel("Tempo de execução (ms)", "tempo", new Color(37, 99, 235));
+                GraficoPainel painelSpeedup = new GraficoPainel("Speedup", "speedup", new Color(22, 163, 74));
+                GraficoPainel painelEficiencia = new GraficoPainel("Eficiência (%)", "eficiencia", new Color(234, 88, 12));
+                painelTempo.atualizar(dadosRegra);
+                painelSpeedup.atualizar(dadosRegra);
+                painelEficiencia.atualizar(dadosRegra);
+
+                abasMetricas.addTab("Tempo", new JScrollPane(painelTempo));
+                abasMetricas.addTab("Speedup", new JScrollPane(painelSpeedup));
+                abasMetricas.addTab("Eficiência", new JScrollPane(painelEficiencia));
+                abasRegras.addTab(grupo.getKey(), abasMetricas);
+            }
+            janelaGraficos.setContentPane(abasRegras);
+            janelaGraficos.revalidate();
             janelaGraficos.setVisible(true);
             janelaGraficos.setState(JFrame.NORMAL);
             janelaGraficos.toFront();
         });
+    }
+
+    private static Map<String, List<Registro>> agruparPorRegra(List<Registro> registros) {
+        Map<String, List<Registro>> grupos = new LinkedHashMap<>();
+        String[] ordem = {"Agregação Financeira", "Transações Suspeitas", "Estatísticas por Categoria"};
+        for (String regra : ordem) grupos.put(regra, new ArrayList<>());
+        for (Registro registro : registros) {
+            String regra = nomeDaRegra(registro.analise);
+            grupos.computeIfAbsent(regra, ignorado -> new ArrayList<>()).add(registro);
+        }
+        grupos.entrySet().removeIf(grupo -> grupo.getValue().isEmpty());
+        return grupos;
+    }
+
+    private static String nomeDaRegra(String analise) {
+        String normalizada = analise.toLowerCase(Locale.ROOT);
+        if (normalizada.contains("agreg")) return "Agregação Financeira";
+        if (normalizada.contains("suspeit")) return "Transações Suspeitas";
+        if (normalizada.contains("categoria")) return "Estatísticas por Categoria";
+        return analise;
     }
 
     private static final class GraficoPainel extends JPanel {
@@ -164,6 +194,7 @@ public final class HistoricoDesempenho {
         private final String metrica;
         private final Color cor;
         private List<Registro> registros = new ArrayList<>();
+        private List<Registro> pontosGrafico = new ArrayList<>();
         private int[] numeracaoExecucoes = new int[0];
 
         GraficoPainel(String titulo, String metrica, Color cor) {
@@ -176,7 +207,9 @@ public final class HistoricoDesempenho {
         void atualizar(List<Registro> novosRegistros) {
             registros = new ArrayList<>(novosRegistros);
             numeracaoExecucoes = numerarExecucoes(registros);
-            setPreferredSize(new Dimension(1080, Math.max(360, 125 + registros.size() * 35)));
+            pontosGrafico = new ArrayList<>(registros);
+            pontosGrafico.addAll(calcularMedias(registros));
+            setPreferredSize(new Dimension(1080, Math.max(360, 170 + pontosGrafico.size() * 35)));
             revalidate();
             repaint();
         }
@@ -192,7 +225,7 @@ public final class HistoricoDesempenho {
             g.setColor(cor);
             g.drawLine(20, 38, getWidth() - 20, 38);
 
-            List<Registro> ordenados = new ArrayList<>(registros);
+            List<Registro> ordenados = new ArrayList<>(pontosGrafico);
             Comparator<Registro> ordem = Comparator.comparingDouble(r -> obterValor(r, metrica));
             if (!"tempo".equals(metrica)) ordem = ordem.reversed();
             ordenados.sort(ordem);
@@ -206,7 +239,7 @@ public final class HistoricoDesempenho {
             int colunaDiferenca = getWidth() - 105;
             int fimBarras = colunaDiferenca - 24;
             int larguraBarras = Math.max(100, fimBarras - inicioBarras);
-            int topo = 82;
+            int topo = 98;
             int alturaLinha = 35;
             int eixoY = topo + ordenados.size() * alturaLinha + 14;
             double maximo = 0.0;
@@ -215,10 +248,12 @@ public final class HistoricoDesempenho {
 
             g.setFont(new Font("Segoe UI", Font.BOLD, 12));
             g.setColor(new Color(55, 65, 81));
-            g.drawString("Execução / configuração", 20, 58);
-            g.drawString(titulo, inicioBarras, 58);
-            g.drawString("Diferença", colunaDiferenca, 58);
-            g.drawLine(20, 66, getWidth() - 20, 66);
+            g.drawString("Execução / configuração", 20, 78);
+            g.drawString(titulo, inicioBarras, 78);
+            g.drawString("Diferença", colunaDiferenca, 78);
+            g.drawLine(20, 85, getWidth() - 20, 85);
+            g.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+            g.drawString("Vermelho: melhor execução   Azul: média dos testes   Laranja: teste individual", 20, 50);
 
             for (int tick = 0; tick <= 5; tick++) {
                 int x = inicioBarras + larguraBarras * tick / 5;
@@ -231,27 +266,35 @@ public final class HistoricoDesempenho {
                 g.drawString(textoEixo, x - larguraTexto / 2, eixoY + 19);
             }
 
-            double melhor = obterValor(ordenados.get(0), metrica);
+            Registro melhorExecucao = encontrarMelhor(registros, metrica);
+            double melhor = obterValor(melhorExecucao, metrica);
             for (int i = 0; i < ordenados.size(); i++) {
                 Registro registro = ordenados.get(i);
                 int y = topo + i * alturaLinha;
                 double valor = obterValor(registro, metrica);
                 int largura = (int) Math.round(valor / maximo * larguraBarras);
                 int numero = numeroPorExecucao.getOrDefault(registro.execucao, 1);
-                String rotulo = String.format(Locale.ROOT, "R%d | %s | %s | %dt",
-                        numero, registro.analise, registro.metodo, registro.threads);
+                String rotulo = registro.media
+                        ? String.format(Locale.ROOT, "Média de %d testes | %s | %s | %dt | %d tx",
+                                registro.quantidadeTestes, nomeDaRegra(registro.analise), registro.metodo,
+                                registro.threads, registro.transacoes)
+                        : String.format(Locale.ROOT, "R%d | %s | %s | %dt | %d tx",
+                                numero, nomeDaRegra(registro.analise), registro.metodo, registro.threads,
+                                registro.transacoes);
 
                 g.setFont(new Font("Segoe UI", Font.PLAIN, 12));
                 g.setColor(new Color(31, 41, 55));
                 g.drawString(ajustarTexto(rotulo, g, inicioBarras - 32), 20, y + 18);
 
-                Color corBarra = i == 0 ? new Color(239, 0, 0)
-                        : i == 1 ? new Color(0, 0, 235) : new Color(255, 153, 0);
+                Color corBarra = registro.media ? new Color(0, 0, 235)
+                        : registro == melhorExecucao ? new Color(239, 0, 0)
+                        : new Color(255, 153, 0);
                 g.setColor(corBarra);
                 g.fillRect(inicioBarras, y, largura, 25);
 
                 String textoValor = formatarValor(valor, metrica);
-                g.setColor(i < 2 ? Color.WHITE : new Color(31, 41, 55));
+                g.setColor(registro.media || registro == melhorExecucao
+                        ? Color.WHITE : new Color(31, 41, 55));
                 if (largura >= g.getFontMetrics().stringWidth(textoValor) + 14) {
                     g.drawString(textoValor, inicioBarras + largura - g.getFontMetrics().stringWidth(textoValor) - 7, y + 18);
                 } else {
@@ -293,6 +336,76 @@ public final class HistoricoDesempenho {
             texto = texto.substring(0, texto.length() - 1);
         }
         return texto + "...";
+    }
+
+    private static List<Registro> calcularMedias(List<Registro> registros) {
+        Map<String, AcumuladorMedia> grupos = new LinkedHashMap<>();
+        for (Registro registro : registros) {
+            String regra = nomeDaRegra(registro.analise);
+            String chave = regra + "|" + registro.metodo + "|"
+                    + registro.threads + "|" + registro.transacoes;
+            AcumuladorMedia acumulador = grupos.get(chave);
+            if (acumulador == null) {
+                acumulador = new AcumuladorMedia(registro);
+                grupos.put(chave, acumulador);
+            }
+            acumulador.adicionar(registro);
+        }
+
+        List<Registro> medias = new ArrayList<>();
+        for (AcumuladorMedia acumulador : grupos.values()) {
+            // A média só acrescenta uma linha útil depois de pelo menos duas execuções comparáveis.
+            if (acumulador.quantidade < 2) continue;
+            Registro media = new Registro();
+            media.execucao = "MEDIA-" + nomeDaRegra(acumulador.modelo.analise) + "-"
+                    + acumulador.modelo.metodo + "-" + acumulador.modelo.threads
+                    + "-" + acumulador.modelo.transacoes;
+            media.dataHora = acumulador.modelo.dataHora;
+            media.analise = nomeDaRegra(acumulador.modelo.analise);
+            media.transacoes = acumulador.modelo.transacoes;
+            media.threads = acumulador.modelo.threads;
+            media.metodo = acumulador.modelo.metodo;
+            media.tempoMs = acumulador.tempo / acumulador.quantidade;
+            media.speedup = acumulador.speedup / acumulador.quantidade;
+            media.eficiencia = acumulador.eficiencia / acumulador.quantidade;
+            media.media = true;
+            media.quantidadeTestes = acumulador.quantidade;
+            medias.add(media);
+        }
+        return medias;
+    }
+
+    private static Registro encontrarMelhor(List<Registro> registros, String metrica) {
+        Registro melhor = registros.get(0);
+        for (int i = 1; i < registros.size(); i++) {
+            Registro candidato = registros.get(i);
+            double valorCandidato = obterValor(candidato, metrica);
+            double valorMelhor = obterValor(melhor, metrica);
+            boolean menorMelhor = "tempo".equals(metrica);
+            if (menorMelhor ? valorCandidato < valorMelhor : valorCandidato > valorMelhor) {
+                melhor = candidato;
+            }
+        }
+        return melhor;
+    }
+
+    private static final class AcumuladorMedia {
+        final Registro modelo;
+        int quantidade;
+        double tempo;
+        double speedup;
+        double eficiencia;
+
+        AcumuladorMedia(Registro modelo) {
+            this.modelo = modelo;
+        }
+
+        void adicionar(Registro registro) {
+            quantidade++;
+            tempo += registro.tempoMs;
+            speedup += registro.speedup;
+            eficiencia += registro.eficiencia;
+        }
     }
 
     private static List<Registro> lerHistorico() throws IOException {

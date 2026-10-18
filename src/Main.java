@@ -27,7 +27,7 @@ public class Main {
             System.out.println("5. Estatísticas por Categoria");
             System.out.println("\n--- BENCHMARK E RESULTADOS ---");
             System.out.println("6. Executar Benchmark Completo: Tempos, SpeedUp e Eficiência");
-            System.out.println("7. Gerar Gráficos de Desempenho");
+            System.out.println("7. Abrir Gráficos de Desempenho e Médias dos Testes");
             System.out.println("\n0. Sair");
             System.out.print("Escolha uma opção: ");
             
@@ -105,7 +105,7 @@ public class Main {
                     medicoes.add(new HistoricoDesempenho.Medicao("Sequencial", 1, tempoSeq));
                     medicoes.add(new HistoricoDesempenho.Medicao("ExecutorService", qtdThreads, tempoPar));
                     medicoes.add(new HistoricoDesempenho.Medicao("Affinity", qtdThreads, tempoParAffinity));
-                    HistoricoDesempenho.registrarGrupo("Agregacao", dadosAtuais.size(), medicoes);
+                    HistoricoDesempenho.registrarGrupo("Agregação Financeira", dadosAtuais.size(), medicoes);
                 }
                 pausar(scanner);
             }
@@ -161,7 +161,7 @@ public class Main {
                     medicoes.add(new HistoricoDesempenho.Medicao("Sequencial", 1, tempoSeq));
                     medicoes.add(new HistoricoDesempenho.Medicao("ExecutorService", qtdThreads, tempoPar));
                     medicoes.add(new HistoricoDesempenho.Medicao("Affinity", qtdThreads, tempoParAffinity));
-                    HistoricoDesempenho.registrarGrupo("Suspeitas", dadosAtuais.size(), medicoes);
+                    HistoricoDesempenho.registrarGrupo("Transações Suspeitas", dadosAtuais.size(), medicoes);
                 }
                 pausar(scanner);
             }
@@ -212,7 +212,7 @@ public class Main {
                     medicoes.add(new HistoricoDesempenho.Medicao("Sequencial", 1, resSeq.tempoExecucaoMs));
                     medicoes.add(new HistoricoDesempenho.Medicao("ExecutorService", qtdThreads, resPar.tempoExecucaoMs));
                     medicoes.add(new HistoricoDesempenho.Medicao("Affinity", qtdThreads, resParAffinity.tempoExecucaoMs));
-                    HistoricoDesempenho.registrarGrupo("Categorias", dadosAtuais.size(), medicoes);
+                    HistoricoDesempenho.registrarGrupo("Estatísticas por Categoria", dadosAtuais.size(), medicoes);
                 }
                 pausar(scanner);
             }
@@ -275,7 +275,7 @@ public class Main {
             imprimirLinhaBenchmark(threads, tempo, tempoSequencial);
         }
 
-        HistoricoDesempenho.registrarGrupo("Benchmark Agregacao", dados.size(), medicoes);
+        HistoricoDesempenho.registrarGrupo("Agregação Financeira", dados.size(), medicoes);
     }
 
     private static void imprimirLinhaBenchmark(int threads, double tempo, double tempoSequencial) {

@@ -56,7 +56,7 @@ public class AgregacaoFinanceira {
                     for (int indice = inicio; indice < fim; indice++) {
                         parcial.adicionar(transacoes.get(indice));
                     }
-                    return parcial.resultado();
+                    return parcial.resultado();    
                 };
                 resultados.add(executor.submit(tarefa));
             }
