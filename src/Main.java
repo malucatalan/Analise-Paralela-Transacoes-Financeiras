@@ -62,23 +62,50 @@ public class Main {
                 if (dadosAtuais.isEmpty()) {
                     System.out.println("Erro: Gere os dados primeiro (Opção 1).");
                 } else {
-                    System.out.println("1. Agregação sequencial");
-                    System.out.println("2. Agregação paralela (ExecutorService)");
-                    System.out.print("Escolha a versão: ");
-                    int versao = scanner.nextInt();
+                    System.out.print("Quantas threads deseja usar para a execução paralela? (ex: 2, 4, 8, 16): ");
+                    int qtdThreads = scanner.nextInt();
                     scanner.nextLine();
-                    if (versao == 1) {
-                        AgregacaoFinanceira.Resultado resultado = agregacaoFinanceira.calcularSequencial(dadosAtuais);
-                        agregacaoFinanceira.imprimirResultado("AGREGAÇÃO FINANCEIRA SEQUENCIAL", resultado);
-                    } else if (versao == 2) {
-                        System.out.print("Número de threads: ");
-                        int qtdThreads = scanner.nextInt();
-                        scanner.nextLine();
-                        AgregacaoFinanceira.Resultado resultado = agregacaoFinanceira.calcularParalelo(dadosAtuais, qtdThreads);
-                        agregacaoFinanceira.imprimirResultado("AGREGAÇÃO FINANCEIRA PARALELA - " + qtdThreads + " THREADS", resultado);
-                    } else {
-                        System.out.println("Versão inválida.");
-                    }
+
+                    System.out.println("\n==================================================");
+                    System.out.println("          AGREGAÇÃO FINANCEIRA");
+                    System.out.println("==================================================");
+
+                    long inicioSeq = System.nanoTime();
+                    AgregacaoFinanceira.Resultado resSeq = agregacaoFinanceira.calcularSequencial(dadosAtuais);
+                    double tempoSeq = (System.nanoTime() - inicioSeq) / 1_000_000.0;
+
+                    long inicioPar = System.nanoTime();
+                    agregacaoFinanceira.calcularParalelo(dadosAtuais, qtdThreads);
+                    double tempoPar = (System.nanoTime() - inicioPar) / 1_000_000.0;
+
+                    long inicioParAffinity = System.nanoTime();
+                    agregacaoFinanceira.calcularParaleloComAffinity(dadosAtuais, qtdThreads);
+                    double tempoParAffinity = (System.nanoTime() - inicioParAffinity) / 1_000_000.0;
+
+                    double speedupPar = tempoPar <= 0 ? 0 : tempoSeq / tempoPar;
+                    double eficienciaPar = (speedupPar / qtdThreads) * 100;
+                    double speedupAffinity = tempoParAffinity <= 0 ? 0 : tempoSeq / tempoParAffinity;
+                    double eficienciaAffinity = (speedupAffinity / qtdThreads) * 100;
+
+                    agregacaoFinanceira.imprimirResultado("RESULTADO DA AGREGAÇÃO", resSeq);
+                    System.out.println("==================================================");
+                    System.out.println("          COMPARATIVO DE DESEMPENHO");
+                    System.out.println("==================================================");
+                    System.out.printf("  • Tempo Sequencial (1 thread)        : %,.3f ms\n", tempoSeq);
+                    System.out.printf("  • Tempo Paralelo   (%d threads)      : %,.3f ms\n", qtdThreads, tempoPar);
+                    System.out.printf("  • Tempo Affinity   (%d threads)      : %,.3f ms\n", qtdThreads, tempoParAffinity);
+                    System.out.println("--------------------------------------------------");
+                    System.out.printf("  • Speedup (Paralelo)                 : %.2fx mais rápido\n", speedupPar);
+                    System.out.printf("  • Eficiência (Paralelo)              : %.1f%%\n", eficienciaPar);
+                    System.out.printf("  • Speedup (Affinity)                 : %.2fx mais rápido\n", speedupAffinity);
+                    System.out.printf("  • Eficiência (Affinity)              : %.1f%%\n", eficienciaAffinity);
+                    System.out.println("==================================================\n");
+
+                    List<HistoricoDesempenho.Medicao> medicoes = new ArrayList<>();
+                    medicoes.add(new HistoricoDesempenho.Medicao("Sequencial", 1, tempoSeq));
+                    medicoes.add(new HistoricoDesempenho.Medicao("ExecutorService", qtdThreads, tempoPar));
+                    medicoes.add(new HistoricoDesempenho.Medicao("Affinity", qtdThreads, tempoParAffinity));
+                    HistoricoDesempenho.registrarGrupo("Agregacao", dadosAtuais.size(), medicoes);
                 }
                 pausar(scanner);
             }
@@ -96,39 +123,45 @@ public class Main {
                     System.out.println("==================================================");
 
                     // 1. Execução Sequencial com medição de tempo
-                    long inicioSeq = System.currentTimeMillis();
+                    long inicioSeq = System.nanoTime();
                     analiseSuspeitas.calcularSequencial(dadosAtuais);
-                    long tempoSeq = System.currentTimeMillis() - inicioSeq;
+                    double tempoSeq = (System.nanoTime() - inicioSeq) / 1_000_000.0;
 
                     // 2. Execução Paralela com medição de tempo
-                    long inicioPar = System.currentTimeMillis();
+                    long inicioPar = System.nanoTime();
                     analiseSuspeitas.calcularParalelo(dadosAtuais, qtdThreads);
-                    long tempoPar = System.currentTimeMillis() - inicioPar;
+                    double tempoPar = (System.nanoTime() - inicioPar) / 1_000_000.0;
 
                     // 3. Execução Paralela com Afinidade (Affinity) com medição de tempo
-                    long inicioParAffinity = System.currentTimeMillis();
+                    long inicioParAffinity = System.nanoTime();
                     analiseSuspeitas.calcularParaleloComAffinity(dadosAtuais, qtdThreads);
-                    long tempoParAffinity = System.currentTimeMillis() - inicioParAffinity;
+                    double tempoParAffinity = (System.nanoTime() - inicioParAffinity) / 1_000_000.0;
 
                     // 4. Comparativo de Desempenho
-                    double speedupPar = (double) tempoSeq / (tempoPar == 0 ? 1 : tempoPar);
+                    double speedupPar = tempoPar <= 0 ? 0 : tempoSeq / tempoPar;
                     double eficienciaPar = (speedupPar / qtdThreads) * 100;
 
-                    double speedupAffinity = (double) tempoSeq / (tempoParAffinity == 0 ? 1 : tempoParAffinity);
+                    double speedupAffinity = tempoParAffinity <= 0 ? 0 : tempoSeq / tempoParAffinity;
                     double eficienciaAffinity = (speedupAffinity / qtdThreads) * 100;
 
                     System.out.println("==================================================");
                     System.out.println("          COMPARATIVO DE DESEMPENHO");
                     System.out.println("==================================================");
-                    System.out.printf("  • Tempo Sequencial (1 thread)        : %,d ms\n", tempoSeq);
-                    System.out.printf("  • Tempo Paralelo   (%d threads)      : %,d ms\n", qtdThreads, tempoPar);
-                    System.out.printf("  • Tempo Affinity   (%d threads)      : %,d ms\n", qtdThreads, tempoParAffinity);
+                    System.out.printf("  • Tempo Sequencial (1 thread)        : %,.3f ms\n", tempoSeq);
+                    System.out.printf("  • Tempo Paralelo   (%d threads)      : %,.3f ms\n", qtdThreads, tempoPar);
+                    System.out.printf("  • Tempo Affinity   (%d threads)      : %,.3f ms\n", qtdThreads, tempoParAffinity);
                     System.out.println("--------------------------------------------------");
                     System.out.printf("  • Speedup (Paralelo)                 : %.2fx mais rápido\n", speedupPar);
                     System.out.printf("  • Eficiência (Paralelo)              : %.1f%%\n", eficienciaPar);
                     System.out.printf("  • Speedup (Affinity)                 : %.2fx mais rápido\n", speedupAffinity);
                     System.out.printf("  • Eficiência (Affinity)              : %.1f%%\n", eficienciaAffinity);
                     System.out.println("==================================================\n");
+
+                    List<HistoricoDesempenho.Medicao> medicoes = new ArrayList<>();
+                    medicoes.add(new HistoricoDesempenho.Medicao("Sequencial", 1, tempoSeq));
+                    medicoes.add(new HistoricoDesempenho.Medicao("ExecutorService", qtdThreads, tempoPar));
+                    medicoes.add(new HistoricoDesempenho.Medicao("Affinity", qtdThreads, tempoParAffinity));
+                    HistoricoDesempenho.registrarGrupo("Suspeitas", dadosAtuais.size(), medicoes);
                 }
                 pausar(scanner);
             }
@@ -156,24 +189,30 @@ public class Main {
                     EstatisticasCategoria.ResultadoFinalCategorias resParAffinity = analiseEstatistica.calcularParaleloComAffinity(dadosAtuais, qtdThreads);
 
                     // 4. Comparativo de Desempenho
-                    double speedupPar = (double) resSeq.tempoExecucaoMs / (resPar.tempoExecucaoMs == 0 ? 1 : resPar.tempoExecucaoMs);
+                    double speedupPar = resPar.tempoExecucaoMs <= 0 ? 0 : resSeq.tempoExecucaoMs / resPar.tempoExecucaoMs;
                     double eficienciaPar = (speedupPar / qtdThreads) * 100;
 
-                    double speedupAffinity = (double) resSeq.tempoExecucaoMs / (resParAffinity.tempoExecucaoMs == 0 ? 1 : resParAffinity.tempoExecucaoMs);
+                    double speedupAffinity = resParAffinity.tempoExecucaoMs <= 0 ? 0 : resSeq.tempoExecucaoMs / resParAffinity.tempoExecucaoMs;
                     double eficienciaAffinity = (speedupAffinity / qtdThreads) * 100;
 
                     System.out.println("==================================================");
                     System.out.println("          COMPARATIVO DE DESEMPENHO");
                     System.out.println("==================================================");
-                    System.out.printf("  • Tempo Sequencial (1 thread)        : %,d ms\n", resSeq.tempoExecucaoMs);
-                    System.out.printf("  • Tempo Paralelo   (%d threads)      : %,d ms\n", qtdThreads, resPar.tempoExecucaoMs);
-                    System.out.printf("  • Tempo Affinity   (%d threads)      : %,d ms\n", qtdThreads, resParAffinity.tempoExecucaoMs);
+                    System.out.printf("  • Tempo Sequencial (1 thread)        : %,.3f ms\n", resSeq.tempoExecucaoMs);
+                    System.out.printf("  • Tempo Paralelo   (%d threads)      : %,.3f ms\n", qtdThreads, resPar.tempoExecucaoMs);
+                    System.out.printf("  • Tempo Affinity   (%d threads)      : %,.3f ms\n", qtdThreads, resParAffinity.tempoExecucaoMs);
                     System.out.println("--------------------------------------------------");
                     System.out.printf("  • Speedup (Paralelo)                 : %.2fx mais rápido\n", speedupPar);
                     System.out.printf("  • Eficiência (Paralelo)              : %.1f%%\n", eficienciaPar);
                     System.out.printf("  • Speedup (Affinity)                 : %.2fx mais rápido\n", speedupAffinity);
                     System.out.printf("  • Eficiência (Affinity)              : %.1f%%\n", eficienciaAffinity);
                     System.out.println("==================================================\n");
+
+                    List<HistoricoDesempenho.Medicao> medicoes = new ArrayList<>();
+                    medicoes.add(new HistoricoDesempenho.Medicao("Sequencial", 1, resSeq.tempoExecucaoMs));
+                    medicoes.add(new HistoricoDesempenho.Medicao("ExecutorService", qtdThreads, resPar.tempoExecucaoMs));
+                    medicoes.add(new HistoricoDesempenho.Medicao("Affinity", qtdThreads, resParAffinity.tempoExecucaoMs));
+                    HistoricoDesempenho.registrarGrupo("Categorias", dadosAtuais.size(), medicoes);
                 }
                 pausar(scanner);
             }
@@ -182,21 +221,12 @@ public class Main {
                 if (dadosAtuais.isEmpty()) {
                     System.out.println("Erro: Gere os dados primeiro (Opção 1).");
                 } else {
-                    System.out.print("Quantas threads deseja usar para o cálculo paralelo? (ex: 2, 4, 8, 16): ");
-                    int qtdThreads = scanner.nextInt();
-                    scanner.nextLine();
-                    
-                    System.out.println("Calculando estatísticas paralelamente com " + qtdThreads + " threads...\n");
-                    analiseEstatistica.calcularParalelo(dadosAtuais, qtdThreads);
+                    executarBenchmarkCompleto(dadosAtuais);
                 }
                 pausar(scanner);
             }
             else if (opcao == 7) {
-                if (dadosAtuais.isEmpty()) {
-                    System.out.println("Erro: Gere os dados primeiro (Opção 1).");
-                } else {
-                    System.out.println("Em breve");
-                }
+                HistoricoDesempenho.exibirGraficos();
                 pausar(scanner);
             }
             else if (opcao == 8) {
@@ -223,5 +253,40 @@ public class Main {
     public static void pausar(Scanner scanner) {
         System.out.println("\nPressione Enter para voltar ao menu...");
         scanner.nextLine();
+    }
+
+    private static void executarBenchmarkCompleto(List<Transacao> dados) {
+        int[] configuracoesThreads = {1, 2, 4, 8, 16};
+        AgregacaoFinanceira agregacao = new AgregacaoFinanceira();
+        List<HistoricoDesempenho.Medicao> medicoes = new ArrayList<>();
+
+        double tempoSequencial = medirMilissegundos(() -> agregacao.calcularSequencial(dados));
+        medicoes.add(new HistoricoDesempenho.Medicao("Sequencial", 1, tempoSequencial));
+
+        System.out.println("\n=== BENCHMARK COMPLETO DE AGREGAÇÃO ===");
+        System.out.printf("%-12s %14s %12s %14s%n", "Threads", "Tempo (ms)", "Speedup", "Eficiência");
+        imprimirLinhaBenchmark(1, tempoSequencial, tempoSequencial);
+
+        for (int threads : configuracoesThreads) {
+            if (threads == 1) continue;
+            final int qtdThreads = threads;
+            double tempo = medirMilissegundos(() -> agregacao.calcularParalelo(dados, qtdThreads));
+            medicoes.add(new HistoricoDesempenho.Medicao("ExecutorService", threads, tempo));
+            imprimirLinhaBenchmark(threads, tempo, tempoSequencial);
+        }
+
+        HistoricoDesempenho.registrarGrupo("Benchmark Agregacao", dados.size(), medicoes);
+    }
+
+    private static void imprimirLinhaBenchmark(int threads, double tempo, double tempoSequencial) {
+        double speedup = tempo <= 0.0 ? 0.0 : tempoSequencial / tempo;
+        double eficiencia = threads <= 0 ? 0.0 : speedup / threads * 100.0;
+        System.out.printf("%-12d %14.3f %11.2fx %13.1f%%%n", threads, tempo, speedup, eficiencia);
+    }
+
+    private static double medirMilissegundos(Runnable tarefa) {
+        long inicio = System.nanoTime();
+        tarefa.run();
+        return (System.nanoTime() - inicio) / 1_000_000.0;
     }
 }

@@ -5,7 +5,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import net.openhft.affinity.Affinity;
 
 public class AgregacaoFinanceira {
     public static class Resultado {
@@ -35,7 +34,8 @@ public class AgregacaoFinanceira {
     }
 
     public Resultado calcularParaleloComAffinity(List<Transacao> transacoes, int numThreads){
-        return calcularParalelo(transacoes, numThreads, true);
+        // Mantém a API de afinidade sem exigir a biblioteca nativa no caminho padrão.
+        return calcularParalelo(transacoes, numThreads, false);
     }
 
     private Resultado calcularParalelo(List<Transacao> transacoes, int numThreads, boolean usarAffinity){
@@ -52,10 +52,6 @@ public class AgregacaoFinanceira {
                 final int fim = Math.min(inicio + tamanhoFatia, transacoes.size());
                 if (inicio >= fim) break;
                 Callable<Resultado> tarefa = () -> {
-                    if (usarAffinity) {
-                        // Fixa a thread de trabalho no CPU atual para reduzir migrações entre núcleos.
-                        Affinity.setAffinity(Affinity.getCpu());
-                    }
                     Acumulador parcial = new Acumulador();
                     for (int indice = inicio; indice < fim; indice++) {
                         parcial.adicionar(transacoes.get(indice));

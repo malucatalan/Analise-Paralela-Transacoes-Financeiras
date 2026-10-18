@@ -21,7 +21,7 @@ public class EstatisticasCategoria {
     // Estrutura para consolidar a resposta global com o tempo medido
     public class ResultadoFinalCategorias {
         public Map<String, ResumoCategoria> mapa = new HashMap<>();
-        public long tempoExecucaoMs = 0;
+        public double tempoExecucaoMs = 0;
     }
 
     // -------------------------------------------------------------
@@ -31,14 +31,14 @@ public class EstatisticasCategoria {
         ResultadoFinalCategorias resultadoGlobal = new ResultadoFinalCategorias();
         resultadoGlobal.mapa = inicializarMapa();
 
-        long inicio = System.currentTimeMillis();
+        long inicio = System.nanoTime();
 
         for (Transacao t : transacoes) {
             processarTransacao(resultadoGlobal.mapa, t);
         }
 
-        long fim = System.currentTimeMillis();
-        resultadoGlobal.tempoExecucaoMs = fim - inicio;
+        long fim = System.nanoTime();
+        resultadoGlobal.tempoExecucaoMs = (fim - inicio) / 1_000_000.0;
 
         System.out.println("\n[RESULTADO SEQUENCIAL - 1 THREAD]");
         imprimirTabela(resultadoGlobal.mapa, resultadoGlobal.tempoExecucaoMs);
@@ -51,7 +51,7 @@ public class EstatisticasCategoria {
     // -------------------------------------------------------------
     public ResultadoFinalCategorias calcularParalelo(List<Transacao> transacoes, int numThreads) {
         ResultadoFinalCategorias resultadoGlobal = new ResultadoFinalCategorias();
-        long inicio = System.currentTimeMillis();
+        long inicio = System.nanoTime();
 
         ExecutorService executor = Executors.newFixedThreadPool(numThreads);
         List<Future<Map<String, ResumoCategoria>>> resultados = new ArrayList<>();
@@ -69,8 +69,8 @@ public class EstatisticasCategoria {
 
         executor.shutdown();
 
-        long fim = System.currentTimeMillis();
-        resultadoGlobal.tempoExecucaoMs = fim - inicio;
+        long fim = System.nanoTime();
+        resultadoGlobal.tempoExecucaoMs = (fim - inicio) / 1_000_000.0;
 
         System.out.println("\n[RESULTADO PARALELO - " + numThreads + " THREADS]");
         imprimirTabela(resultadoGlobal.mapa, resultadoGlobal.tempoExecucaoMs);
@@ -83,7 +83,7 @@ public class EstatisticasCategoria {
     // -------------------------------------------------------------
     public ResultadoFinalCategorias calcularParaleloComAffinity(List<Transacao> transacoes, int numThreads) {
         ResultadoFinalCategorias resultadoGlobal = new ResultadoFinalCategorias();
-        long inicio = System.currentTimeMillis();
+        long inicio = System.nanoTime();
 
         ExecutorService executor = Executors.newFixedThreadPool(numThreads);
         List<Future<Map<String, ResumoCategoria>>> resultados = new ArrayList<>();
@@ -105,8 +105,8 @@ public class EstatisticasCategoria {
 
         executor.shutdown();
 
-        long fim = System.currentTimeMillis();
-        resultadoGlobal.tempoExecucaoMs = fim - inicio;
+        long fim = System.nanoTime();
+        resultadoGlobal.tempoExecucaoMs = (fim - inicio) / 1_000_000.0;
 
         System.out.println("\n[RESULTADO PARALELO + AFINIDADE - " + numThreads + " THREADS FIXADAS EM CORES]");
         imprimirTabela(resultadoGlobal.mapa, resultadoGlobal.tempoExecucaoMs);
@@ -208,7 +208,7 @@ public class EstatisticasCategoria {
     }
 
     // Impressão em formato de tabela
-    private void imprimirTabela(Map<String, ResumoCategoria> mapaEstatisticas, long tempoExecucaoMs) {
+    private void imprimirTabela(Map<String, ResumoCategoria> mapaEstatisticas, double tempoExecucaoMs) {
         System.out.printf("\n%-16s %12s %20s %18s %18s %18s\n", 
                           "Categoria", "Quantidade", "Total", "Média", "Menor Trans.", "Maior Trans.");
         System.out.println("---------------------------------------------------------------------------------------------------------------");
@@ -224,7 +224,7 @@ public class EstatisticasCategoria {
             }
         }
         System.out.println("---------------------------------------------------------------------------------------------------------------");
-        System.out.printf("Tempo de Execução: %,d ms (%.3f segundos)\n", tempoExecucaoMs, tempoExecucaoMs / 1000.0);
+        System.out.printf("Tempo de Execução: %,.3f ms (%.6f segundos)\n", tempoExecucaoMs, tempoExecucaoMs / 1000.0);
         System.out.println("---------------------------------------------------------------------------------------------------------------\n");
     }
 }
