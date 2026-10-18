@@ -1,5 +1,4 @@
-//SOURCES *.java
-//DEPS net.openhft:affinity:3.23.3
+
 import java.util.Scanner;
 import java.util.List;
 import java.util.ArrayList;
@@ -122,22 +121,20 @@ public class Main {
                     System.out.println("    DETECÇÃO DE TRANSAÇÕES SUSPEITAS");
                     System.out.println("==================================================");
 
-                    // 1. Execução Sequencial com medição de tempo
                     long inicioSeq = System.nanoTime();
-                    analiseSuspeitas.calcularSequencial(dadosAtuais);
+                    TransacoesSuspeitas.ResumoSuspeitas resumo = analiseSuspeitas.calcularSequencial(dadosAtuais);
                     double tempoSeq = (System.nanoTime() - inicioSeq) / 1_000_000.0;
 
-                    // 2. Execução Paralela com medição de tempo
                     long inicioPar = System.nanoTime();
                     analiseSuspeitas.calcularParalelo(dadosAtuais, qtdThreads);
                     double tempoPar = (System.nanoTime() - inicioPar) / 1_000_000.0;
 
-                    // 3. Execução Paralela com Afinidade (Affinity) com medição de tempo
                     long inicioParAffinity = System.nanoTime();
                     analiseSuspeitas.calcularParaleloComAffinity(dadosAtuais, qtdThreads);
                     double tempoParAffinity = (System.nanoTime() - inicioParAffinity) / 1_000_000.0;
 
-                    // 4. Comparativo de Desempenho
+                    analiseSuspeitas.imprimirRelatorio(resumo);
+
                     double speedupPar = tempoPar <= 0 ? 0 : tempoSeq / tempoPar;
                     double eficienciaPar = (speedupPar / qtdThreads) * 100;
 
@@ -166,7 +163,6 @@ public class Main {
                 pausar(scanner);
             }
 
-            // --- ESTATÍSTICAS POR CATEGORIA (SEQUENCIAL + PARALELO) ---
             else if (opcao == 5) {
                 if (dadosAtuais.isEmpty()) {
                     System.out.println("Erro: Gere os dados primeiro (Opção 1).");
@@ -179,16 +175,13 @@ public class Main {
                     System.out.println("    ESTATÍSTICAS POR CATEGORIA");
                     System.out.println("==================================================");
 
-                    // 1. Execução Sequencial
                     EstatisticasCategoria.ResultadoFinalCategorias resSeq = analiseEstatistica.calcularSequencial(dadosAtuais);
 
-                    // 2. Execução Paralela (ExecutorService padrão)
                     EstatisticasCategoria.ResultadoFinalCategorias resPar = analiseEstatistica.calcularParalelo(dadosAtuais, qtdThreads);
 
-                    // 3. Execução Paralela com Afinidade (Affinity)
                     EstatisticasCategoria.ResultadoFinalCategorias resParAffinity = analiseEstatistica.calcularParaleloComAffinity(dadosAtuais, qtdThreads);
 
-                    // 4. Comparativo de Desempenho
+                    
                     double speedupPar = resPar.tempoExecucaoMs <= 0 ? 0 : resSeq.tempoExecucaoMs / resPar.tempoExecucaoMs;
                     double eficienciaPar = (speedupPar / qtdThreads) * 100;
 
@@ -216,7 +209,7 @@ public class Main {
                 }
                 pausar(scanner);
             }
-            // --- ESTATÍSTICAS POR CATEGORIA (PARALELO) ---
+            
             else if (opcao == 6) {
                 if (dadosAtuais.isEmpty()) {
                     System.out.println("Erro: Gere os dados primeiro (Opção 1).");

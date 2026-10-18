@@ -1,3 +1,5 @@
+//DEPS net.openhft:affinity:3.23.3
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.ArrayList;
@@ -10,7 +12,6 @@ import net.openhft.affinity.AffinityLock;
 
 public class EstatisticasCategoria {
 
-    // Estrutura de dados enxuta para evitar estouro de memória RAM
     class ResumoCategoria {
         int quantidade = 0;
         double valorTotal = 0.0;
@@ -18,15 +19,11 @@ public class EstatisticasCategoria {
         double menorTransacao = Double.MAX_VALUE;
     }
 
-    // Estrutura para consolidar a resposta global com o tempo medido
     public class ResultadoFinalCategorias {
         public Map<String, ResumoCategoria> mapa = new HashMap<>();
         public double tempoExecucaoMs = 0;
     }
 
-    // -------------------------------------------------------------
-    // 1. EXECUÇÃO SEQUENCIAL (1 THREAD)
-    // -------------------------------------------------------------
     public ResultadoFinalCategorias calcularSequencial(List<Transacao> transacoes) {
         ResultadoFinalCategorias resultadoGlobal = new ResultadoFinalCategorias();
         resultadoGlobal.mapa = inicializarMapa();
@@ -46,9 +43,6 @@ public class EstatisticasCategoria {
         return resultadoGlobal;
     }
 
-    // -------------------------------------------------------------
-    // 2. EXECUÇÃO PARALELA (EXECUTOR SERVICE)
-    // -------------------------------------------------------------
     public ResultadoFinalCategorias calcularParalelo(List<Transacao> transacoes, int numThreads) {
         ResultadoFinalCategorias resultadoGlobal = new ResultadoFinalCategorias();
         long inicio = System.nanoTime();
@@ -61,7 +55,8 @@ public class EstatisticasCategoria {
             int inicioFatia = i * tamanhoFatia;
             int fimFatia = (i == numThreads - 1) ? transacoes.size() : (i + 1) * tamanhoFatia;
 
-            Callable<Map<String, ResumoCategoria>> tarefa = new TarefaEstatisticas(transacoes.subList(inicioFatia, fimFatia));
+            Callable<Map<String, ResumoCategoria>> tarefa = new TarefaEstatisticas(
+                    transacoes.subList(inicioFatia, fimFatia));
             resultados.add(executor.submit(tarefa));
         }
 
@@ -78,9 +73,6 @@ public class EstatisticasCategoria {
         return resultadoGlobal;
     }
 
-    // -------------------------------------------------------------
-    // 3. EXECUÇÃO PARALELA COM AFINIDADE DE CPU (OPENHFT AFFINITY)
-    // -------------------------------------------------------------
     public ResultadoFinalCategorias calcularParaleloComAffinity(List<Transacao> transacoes, int numThreads) {
         ResultadoFinalCategorias resultadoGlobal = new ResultadoFinalCategorias();
         long inicio = System.nanoTime();
@@ -93,11 +85,11 @@ public class EstatisticasCategoria {
         for (int i = 0; i < numThreads; i++) {
             int inicioFatia = i * tamanhoFatia;
             int fimFatia = (i == numThreads - 1) ? transacoes.size() : (i + 1) * tamanhoFatia;
-            
-            // Proteção para não estourar o limite de núcleos físicos
+
             int cpuCore = i % totalCores;
-            
-            Callable<Map<String, ResumoCategoria>> tarefa = new TarefaEstatisticasAffinity(transacoes.subList(inicioFatia, fimFatia), cpuCore);
+
+            Callable<Map<String, ResumoCategoria>> tarefa = new TarefaEstatisticasAffinity(
+                    transacoes.subList(inicioFatia, fimFatia), cpuCore);
             resultados.add(executor.submit(tarefa));
         }
 
@@ -114,9 +106,6 @@ public class EstatisticasCategoria {
         return resultadoGlobal;
     }
 
-    // -------------------------------------------------------------
-    // TAREFA PARALELA (CALLABLE)
-    // -------------------------------------------------------------
     class TarefaEstatisticas implements Callable<Map<String, ResumoCategoria>> {
         private final List<Transacao> fatia;
 
@@ -134,9 +123,6 @@ public class EstatisticasCategoria {
         }
     }
 
-    // -------------------------------------------------------------
-    // TAREFA PARALELA COM AFINIDADE (CALLABLE)
-    // -------------------------------------------------------------
     class TarefaEstatisticasAffinity implements Callable<Map<String, ResumoCategoria>> {
         private final List<Transacao> fatia;
         private final int cpuCore;
@@ -158,9 +144,6 @@ public class EstatisticasCategoria {
         }
     }
 
-    // -------------------------------------------------------------
-    // MÉTODOS AUXILIARES
-    // -------------------------------------------------------------
     private Map<String, ResumoCategoria> inicializarMapa() {
         Map<String, ResumoCategoria> mapa = new HashMap<>();
         mapa.put("Alimentação", new ResumoCategoria());
@@ -176,8 +159,10 @@ public class EstatisticasCategoria {
         if (resumo != null) {
             resumo.quantidade++;
             resumo.valorTotal += t.valor;
-            if (t.valor > resumo.maiorTransacao) resumo.maiorTransacao = t.valor;
-            if (t.valor < resumo.menorTransacao) resumo.menorTransacao = t.valor;
+            if (t.valor > resumo.maiorTransacao)
+                resumo.maiorTransacao = t.valor;
+            if (t.valor < resumo.menorTransacao)
+                resumo.menorTransacao = t.valor;
         }
     }
 
@@ -207,11 +192,11 @@ public class EstatisticasCategoria {
         return mapaFinal;
     }
 
-    // Impressão em formato de tabela
     private void imprimirTabela(Map<String, ResumoCategoria> mapaEstatisticas, double tempoExecucaoMs) {
-        System.out.printf("\n%-16s %12s %20s %18s %18s %18s\n", 
-                          "Categoria", "Quantidade", "Total", "Média", "Menor Trans.", "Maior Trans.");
-        System.out.println("---------------------------------------------------------------------------------------------------------------");
+        System.out.printf("\n%-16s %12s %20s %18s %18s %18s\n",
+                "Categoria", "Quantidade", "Total", "Média", "Menor Trans.", "Maior Trans.");
+        System.out.println(
+                "---------------------------------------------------------------------------------------------------------------");
 
         for (String nomeCategoria : mapaEstatisticas.keySet()) {
             ResumoCategoria res = mapaEstatisticas.get(nomeCategoria);
@@ -219,12 +204,14 @@ public class EstatisticasCategoria {
             if (res.quantidade > 0) {
                 double media = res.valorTotal / res.quantidade;
 
-                System.out.printf("%-16s %,12d    R$ %,14.2f   R$ %,13.2f   R$ %,13.2f   R$ %,13.2f\n", 
-                                  nomeCategoria, res.quantidade, res.valorTotal, media, res.menorTransacao, res.maiorTransacao);
+                System.out.printf("%-16s %,12d    R$ %,14.2f   R$ %,13.2f   R$ %,13.2f   R$ %,13.2f\n",
+                        nomeCategoria, res.quantidade, res.valorTotal, media, res.menorTransacao, res.maiorTransacao);
             }
         }
-        System.out.println("---------------------------------------------------------------------------------------------------------------");
+        System.out.println(
+                "---------------------------------------------------------------------------------------------------------------");
         System.out.printf("Tempo de Execução: %,.3f ms (%.6f segundos)\n", tempoExecucaoMs, tempoExecucaoMs / 1000.0);
-        System.out.println("---------------------------------------------------------------------------------------------------------------\n");
+        System.out.println(
+                "---------------------------------------------------------------------------------------------------------------\n");
     }
 }

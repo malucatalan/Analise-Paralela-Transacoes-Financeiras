@@ -29,7 +29,6 @@ import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.SwingUtilities;
 
-/** Guarda medições entre execuções e exibe gráficos com todo o histórico. */
 public final class HistoricoDesempenho {
     private static final Path ARQUIVO_CSV = Paths.get("resultados_benchmark.csv");
     private static final Path ARQUIVO_SVG = Paths.get("graficos_desempenho.svg");
@@ -354,7 +353,6 @@ public final class HistoricoDesempenho {
 
         List<Registro> medias = new ArrayList<>();
         for (AcumuladorMedia acumulador : grupos.values()) {
-            // A média só acrescenta uma linha útil depois de pelo menos duas execuções comparáveis.
             if (acumulador.quantidade < 2) continue;
             Registro media = new Registro();
             media.execucao = "MEDIA-" + nomeDaRegra(acumulador.modelo.analise) + "-"
@@ -430,7 +428,6 @@ public final class HistoricoDesempenho {
                     registro.eficiencia = Double.parseDouble(campos[8]);
                     registros.add(registro);
                 } catch (NumberFormatException ignorado) {
-                    // Ignora linhas incompletas sem descartar as medições válidas.
                 }
             }
         }

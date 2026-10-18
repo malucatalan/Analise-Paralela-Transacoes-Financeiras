@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="605" viewBox="0 0 1200 605">
+<rect width="100%" height="100%" fill="#f8fafc"/>
+<style>text{font-family:Segoe UI,Arial,sans-serif;fill:#172033}.title{font-size:22px;font-weight:700}.label{font-size:13px}.value{font-size:12px;fill:#334155}</style>
+<text x="30" y="32" class="title">Histórico de desempenho — todas as execuções</text>
+<text x="30" y="74" class="title">Tempo de execução (ms)</text>
+<text x="30" y="111" class="label">R1 | Agregação Financeira | ExecutorService | 2 th</text>
+<rect x="475" y="97" width="610" height="17" rx="3" fill="#2563eb"/>
+<text x="1095" y="110" class="value">135.006</text>
+<text x="30" y="136" class="label">R1 | Agregação Financeira | ExecutorService | 4 th</text>
+<rect x="475" y="122" width="489" height="17" rx="3" fill="#2563eb"/>
+<text x="974" y="135" class="value">108.175</text>
+<text x="30" y="161" class="label">R1 | Agregação Financeira | ExecutorService | 8 th</text>
+<rect x="475" y="147" width="347" height="17" rx="3" fill="#2563eb"/>
+<text x="832" y="160" class="value">76.809</text>
+<text x="30" y="186" class="label">R1 | Agregação Financeira | ExecutorService | 16 th</text>
+<rect x="475" y="172" width="447" height="17" rx="3" fill="#2563eb"/>
+<text x="932" y="185" class="value">98.948</text>
+<text x="30" y="264" class="title">Speedup</text>
+<text x="30" y="301" class="label">R1 | Agregação Financeira | ExecutorService | 2 th</text>
+<rect x="475" y="287" width="347" height="17" rx="3" fill="#16a34a"/>
+<text x="832" y="300" class="value">1.593</text>
+<text x="30" y="326" class="label">R1 | Agregação Financeira | ExecutorService | 4 th</text>
+<rect x="475" y="312" width="433" height="17" rx="3" fill="#16a34a"/>
+<text x="918" y="325" class="value">1.988</text>
+<text x="30" y="351" class="label">R1 | Agregação Financeira | ExecutorService | 8 th</text>
+<rect x="475" y="337" width="610" height="17" rx="3" fill="#16a34a"/>
+<text x="1095" y="350" class="value">2.800</text>
+<text x="30" y="376" class="label">R1 | Agregação Financeira | ExecutorService | 16 th</text>
+<rect x="475" y="362" width="474" height="17" rx="3" fill="#16a34a"/>
+<text x="959" y="375" class="value">2.174</text>
+<text x="30" y="454" class="title">Eficiência (%)</text>
+<text x="30" y="491" class="label">R1 | Agregação Financeira | ExecutorService | 2 th</text>
+<rect x="475" y="477" width="610" height="17" rx="3" fill="#ea580c"/>
+<text x="1095" y="490" class="value">79.650</text>
+<text x="30" y="516" class="label">R1 | Agregação Financeira | ExecutorService | 4 th</text>
+<rect x="475" y="502" width="381" height="17" rx="3" fill="#ea580c"/>
+<text x="866" y="515" class="value">49.703</text>
+<text x="30" y="541" class="label">R1 | Agregação Financeira | ExecutorService | 8 th</text>
+<rect x="475" y="527" width="268" height="17" rx="3" fill="#ea580c"/>
+<text x="753" y="540" class="value">35.000</text>
+<text x="30" y="566" class="label">R1 | Agregação Financeira | ExecutorService | 16 th</text>
+<rect x="475" y="552" width="104" height="17" rx="3" fill="#ea580c"/>
+<text x="589" y="565" class="value">13.584</text>
+</svg>

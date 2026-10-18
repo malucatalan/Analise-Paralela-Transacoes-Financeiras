@@ -1,4 +1,5 @@
 //DEPS net.openhft:affinity:3.23.3
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -9,7 +10,6 @@ import net.openhft.affinity.AffinityLock;
 
 public class TransacoesSuspeitas {
 
-    // Estrutura para armazenar o resumo das suspeitas encontradas
     public class ResumoSuspeitas {
         public int totalAnalisado = 0;
         public int quantidadeSuspeitas = 0;
@@ -18,9 +18,6 @@ public class TransacoesSuspeitas {
         public long tempoExecucaoMs = 0;
     }
 
-    // -------------------------------------------------------------
-    // 1. EXECUÇÃO SEQUENCIAL (1 THREAD)
-    // -------------------------------------------------------------
     public ResumoSuspeitas calcularSequencial(List<Transacao> transacoes) {
         ResumoSuspeitas resumo = new ResumoSuspeitas();
 
@@ -33,13 +30,9 @@ public class TransacoesSuspeitas {
         long fim = System.currentTimeMillis();
         resumo.tempoExecucaoMs = fim - inicio;
 
-
         return resumo;
     }
 
-    // -------------------------------------------------------------
-    // 2. EXECUÇÃO PARALELA (EXECUTOR SERVICE SEM AFINIDADE)
-    // -------------------------------------------------------------
     public ResumoSuspeitas calcularParalelo(List<Transacao> transacoes, int numThreads) {
         long inicio = System.currentTimeMillis();
 
@@ -62,13 +55,9 @@ public class TransacoesSuspeitas {
         long fim = System.currentTimeMillis();
         resumoFinal.tempoExecucaoMs = fim - inicio;
 
-
         return resumoFinal;
     }
 
-    // -------------------------------------------------------------
-    // 3. EXECUÇÃO PARALELA COM AFINIDADE DE CPU (OPENHFT AFFINITY)
-    // -------------------------------------------------------------
     public ResumoSuspeitas calcularParaleloComAffinity(List<Transacao> transacoes, int numThreads) {
         long inicio = System.currentTimeMillis();
 
@@ -80,8 +69,9 @@ public class TransacoesSuspeitas {
             int inicioFatia = i * tamanhoFatia;
             int fimFatia = (i == numThreads - 1) ? transacoes.size() : (i + 1) * tamanhoFatia;
 
-            int cpuCore = i; // Associa a thread ao núcleo físico correspondente
-            Callable<ResumoSuspeitas> tarefa = new TarefaSuspeitasAffinity(transacoes.subList(inicioFatia, fimFatia), cpuCore);
+            int cpuCore = i;
+            Callable<ResumoSuspeitas> tarefa = new TarefaSuspeitasAffinity(transacoes.subList(inicioFatia, fimFatia),
+                    cpuCore);
             resultados.add(executor.submit(tarefa));
         }
 
@@ -92,13 +82,9 @@ public class TransacoesSuspeitas {
         long fim = System.currentTimeMillis();
         resumoFinal.tempoExecucaoMs = fim - inicio;
 
-
         return resumoFinal;
     }
 
-    // -------------------------------------------------------------
-    // TAREFA PARALELA PADRÃO (CALLABLE)
-    // -------------------------------------------------------------
     class TarefaSuspeitas implements Callable<ResumoSuspeitas> {
         private final List<Transacao> fatia;
 
@@ -116,9 +102,6 @@ public class TransacoesSuspeitas {
         }
     }
 
-    // -------------------------------------------------------------
-    // TAREFA PARALELA COM AFINIDADE DE CPU (CALLABLE)
-    // -------------------------------------------------------------
     class TarefaSuspeitasAffinity implements Callable<ResumoSuspeitas> {
         private final List<Transacao> fatia;
         private final int cpuCore;
@@ -130,7 +113,6 @@ public class TransacoesSuspeitas {
 
         @Override
         public ResumoSuspeitas call() {
-            // Fixa a thread no núcleo de CPU selecionado durante o processamento
             try (AffinityLock lock = AffinityLock.acquireLock(cpuCore)) {
                 ResumoSuspeitas resumoLocal = new ResumoSuspeitas();
                 for (Transacao t : fatia) {
@@ -141,9 +123,6 @@ public class TransacoesSuspeitas {
         }
     }
 
-    // -------------------------------------------------------------
-    // REDUÇÃO / CONSOLIDAÇÃO DOS RESULTADOS PARCIAIS
-    // -------------------------------------------------------------
     private ResumoSuspeitas consolidarResultados(List<Future<ResumoSuspeitas>> resultados) {
         ResumoSuspeitas resumoFinal = new ResumoSuspeitas();
         try {
@@ -160,9 +139,6 @@ public class TransacoesSuspeitas {
         return resumoFinal;
     }
 
-    // -------------------------------------------------------------
-    // REGRAS DE NEGÓCIO DA ANÁLISE
-    // -------------------------------------------------------------
     private void processarTransacao(ResumoSuspeitas resumo, Transacao t) {
         resumo.totalAnalisado++;
 
@@ -176,21 +152,20 @@ public class TransacoesSuspeitas {
         }
     }
 
-    // -------------------------------------------------------------
-    // IMPRESSÃO DE RESULTADOS
-    // -------------------------------------------------------------
-    private void imprimirRelatorio(ResumoSuspeitas resumo) {
-        double percentualSuspeito = (resumo.totalAnalisado > 0) 
-            ? ((double) resumo.quantidadeSuspeitas / resumo.totalAnalisado) * 100 
-            : 0.0;
+    public void imprimirRelatorio(ResumoSuspeitas resumo) {
+        double percentualSuspeito = (resumo.totalAnalisado > 0)
+                ? ((double) resumo.quantidadeSuspeitas / resumo.totalAnalisado) * 100
+                : 0.0;
 
         System.out.println("------------------------------------------------------------------");
         System.out.println("DETECÇÃO DE TRANSAÇÕES SUSPEITAS");
         System.out.println("------------------------------------------------------------------");
         System.out.printf("Total de transações analisadas: %,d\n", resumo.totalAnalisado);
-        System.out.printf("Transações suspeitas encontradas: %,d (%.2f%%)\n", resumo.quantidadeSuspeitas, percentualSuspeito);
+        System.out.printf("Transações suspeitas encontradas: %,d (%.2f%%)\n", resumo.quantidadeSuspeitas,
+                percentualSuspeito);
         System.out.printf("Valor acumulado em suspeitas: R$ %,14.2f\n", resumo.valorTotalSuspeito);
-        System.out.printf("Tempo de Execução: %,d ms (%.3f segundos)\n", resumo.tempoExecucaoMs, resumo.tempoExecucaoMs / 1000.0);
+        System.out.printf("Tempo de Execução: %,d ms (%.3f segundos)\n", resumo.tempoExecucaoMs,
+                resumo.tempoExecucaoMs / 1000.0);
         System.out.println("------------------------------------------------------------------\n");
     }
 }

@@ -34,7 +34,6 @@ public class AgregacaoFinanceira {
     }
 
     public Resultado calcularParaleloComAffinity(List<Transacao> transacoes, int numThreads){
-        // Mantém a API de afinidade sem exigir a biblioteca nativa no caminho padrão.
         return calcularParalelo(transacoes, numThreads, false);
     }
 
